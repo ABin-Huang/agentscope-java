@@ -137,7 +137,7 @@ public class SandboxLifecycleMiddleware implements HarnessRuntimeMiddleware {
                 ctx.put(SandboxAcquireResult.class, null);
                 filesystemProxy.clearSandboxIfCurrent(sandbox);
                 try {
-                    sandboxManager.release(result);
+                    sandboxManager.release(result, sandboxContext);
                 } catch (Exception releaseErr) {
                     log.warn(
                             "[sandbox-mw] Failed to release session after pre-call failure: {}",
@@ -180,7 +180,7 @@ public class SandboxLifecycleMiddleware implements HarnessRuntimeMiddleware {
         // Release (stop/persist workspace) first so state mutations made during stop — e.g.
         // workspaceRootReady or per-session snapshot records — are captured by the persist below.
         try {
-            sandboxManager.release(result);
+            sandboxManager.release(result, sandboxContext);
         } catch (Exception e) {
             log.warn("[sandbox-mw] Failed to release sandbox session: {}", e.getMessage(), e);
         }
