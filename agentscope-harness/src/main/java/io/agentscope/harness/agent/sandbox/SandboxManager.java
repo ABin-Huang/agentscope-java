@@ -181,7 +181,24 @@ public class SandboxManager {
         state.setSnapshot(snapshotSpec.build(persistedSnapshotId));
     }
 
-    public void release(SandboxAcquireResult result) {
+    /**
+     * Releases a self-managed sandbox after a call.
+     *
+     * <p>Behavior depends on the {@link SandboxReleasePolicy} from the {@link SandboxContext}:
+     * <ul>
+     *   <li>{@link SandboxReleasePolicy#DELETE} (default): call {@code stop()} then {@code shutdown()}
+     *       to persist the snapshot and destroy the backend resources.
+     *   <li>{@link SandboxReleasePolicy#RETAIN}: call {@code stop()} only to persist the snapshot,
+     *       skipping {@code shutdown()} so the sandbox instance stays alive for reuse on the next call.
+     * </ul>
+     *
+     * <p>User-managed sandboxes (Priority 1) are never stopped or shutdown by the harness — the
+     * caller owns their lifecycle.
+     *
+     * @param result the acquire result from the start of the call
+     * @param sandboxContext the sandbox context containing the release policy
+     */
+    public void release(SandboxAcquireResult result, SandboxContext sandboxContext) {
         if (result == null) {
             return;
         }
@@ -204,11 +221,31 @@ public class SandboxManager {
             log.warn("[sandbox] Sandbox stop failed: {}", e.getMessage(), e);
         }
 
+        SandboxReleasePolicy policy =
+                sandboxContext != null ? sandboxContext.getReleasePolicy() : SandboxReleasePolicy.DELETE;
+
+        if (policy == SandboxReleasePolicy.RETAIN) {
+            log.debug(
+                    "[sandbox] Release policy RETAIN: skipping shutdown, keeping sandbox alive: {}",
+                    sandbox.getState() != null ? sandbox.getState().getSessionId() : "?");
+            return;
+        }
+
         try {
             sandbox.shutdown();
         } catch (Exception e) {
             log.warn("[sandbox] Sandbox shutdown failed: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * @deprecated use {@link #release(SandboxAcquireResult, SandboxContext)} instead.
+     *     This overload defaults to {@link SandboxReleasePolicy#DELETE} behavior for backward
+     *     compatibility.
+     */
+    @Deprecated
+    public void release(SandboxAcquireResult result) {
+        release(result, null);
     }
 
     public void persistState(

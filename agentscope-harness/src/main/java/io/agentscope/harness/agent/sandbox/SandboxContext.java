@@ -33,6 +33,7 @@ public final class SandboxContext {
     private final Sandbox externalSandbox;
     private final SandboxState externalSandboxState;
     private final IsolationScope isolationScope;
+    private final SandboxReleasePolicy releasePolicy;
 
     private SandboxContext(Builder builder) {
         this.client = builder.client;
@@ -42,6 +43,8 @@ public final class SandboxContext {
         this.externalSandbox = builder.externalSandbox;
         this.externalSandboxState = builder.externalSandboxState;
         this.isolationScope = builder.isolationScope;
+        this.releasePolicy =
+                builder.releasePolicy != null ? builder.releasePolicy : SandboxReleasePolicy.DELETE;
     }
 
     public SandboxClient<?> getClient() {
@@ -72,6 +75,15 @@ public final class SandboxContext {
         return isolationScope;
     }
 
+    /**
+     * Returns the release policy for self-managed sandboxes.
+     *
+     * @return the release policy (never null; defaults to {@link SandboxReleasePolicy#DELETE})
+     */
+    public SandboxReleasePolicy getReleasePolicy() {
+        return releasePolicy;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -85,6 +97,7 @@ public final class SandboxContext {
         private Sandbox externalSandbox;
         private SandboxState externalSandboxState;
         private IsolationScope isolationScope;
+        private SandboxReleasePolicy releasePolicy;
 
         private Builder() {}
 
@@ -120,6 +133,17 @@ public final class SandboxContext {
 
         public Builder isolationScope(IsolationScope isolationScope) {
             this.isolationScope = isolationScope;
+            return this;
+        }
+
+        /**
+         * Sets the release policy for self-managed sandboxes.
+         *
+         * @param releasePolicy the release policy (defaults to {@link SandboxReleasePolicy#DELETE})
+         * @return this builder
+         */
+        public Builder releasePolicy(SandboxReleasePolicy releasePolicy) {
+            this.releasePolicy = releasePolicy;
             return this;
         }
 
