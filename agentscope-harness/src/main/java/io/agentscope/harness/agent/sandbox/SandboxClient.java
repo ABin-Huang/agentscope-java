@@ -15,6 +15,9 @@
  */
 package io.agentscope.harness.agent.sandbox;
 
+import io.agentscope.harness.agent.sandbox.snapshot.RemoteSandboxSnapshot;
+import io.agentscope.harness.agent.sandbox.snapshot.RemoteSnapshotSpec;
+import io.agentscope.harness.agent.sandbox.snapshot.SandboxSnapshot;
 import io.agentscope.harness.agent.sandbox.snapshot.SandboxSnapshotSpec;
 
 /**
@@ -42,7 +45,48 @@ public interface SandboxClient<O extends SandboxClientOptions> {
 
     SandboxState deserializeState(String json);
 
+    /**
+     * Deserializes sandbox state from JSON and re-binds the {@link RemoteSnapshotClient}
+     * from the given {@link SandboxSnapshotSpec} when the state contains a
+     * {@link RemoteSandboxSnapshot}.
+     *
+     * <p>{@link RemoteSandboxSnapshot} is serialized with only its {@code id} (the client
+     * is {@code @JsonIgnore}), so the client must be re-injected from the snapshot spec
+     * at resume time. This default method performs that re-binding generically, so all
+     * {@link SandboxClient} implementations automatically support remote snapshots
+     * without needing to override this method.
+     *
+     * @param json the serialized sandbox state JSON
+     * @param snapshotSpec the snapshot spec used when the sandbox was created; may be
+     *        {@code null} (in which case no re-binding occurs)
+     * @return the deserialized state with the remote snapshot client re-bound if applicable
+     */
     default SandboxState deserializeState(String json, SandboxSnapshotSpec snapshotSpec) {
-        return deserializeState(json);
+        SandboxState state = deserializeState(json);
+        rebindRemoteSnapshot(state, snapshotSpec);
+        return state;
+    }
+
+    /**
+     * Re-binds the {@link RemoteSnapshotClient} into the {@link RemoteSandboxSnapshot}
+     * held by the given state, using the client from the {@link RemoteSnapshotSpec}.
+     *
+     * <p>This is called automatically by the default
+     * {@link #deserializeState(String, SandboxSnapshotSpec)} method. Implementations that
+     * override that method should call this helper to preserve remote snapshot support.
+     *
+     * @param state the deserialized sandbox state
+     * @param snapshotSpec the snapshot spec that was used to create the sandbox
+     */
+    static void rebindRemoteSnapshot(SandboxState state, SandboxSnapshotSpec snapshotSpec) {
+        if (!(snapshotSpec instanceof RemoteSnapshotSpec remoteSnapshotSpec)) {
+            return;
+        }
+        SandboxSnapshot snapshot = state.getSnapshot();
+        if (!(snapshot instanceof RemoteSandboxSnapshot)) {
+            return;
+        }
+        state.setSnapshot(
+                new RemoteSandboxSnapshot(remoteSnapshotSpec.getClient(), snapshot.getId()));
     }
 }
